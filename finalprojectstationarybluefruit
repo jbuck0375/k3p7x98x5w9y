@@ -1,0 +1,76 @@
+#include "Adafruit_BluefruitLE_SPI.h"
+
+Adafruit_BluefruitLE_SPI btle(8, 7, 4);
+
+const bool PERFORM_CONFIGURATION = true; 
+
+const String BTLE_NAME = "Bluefruit"; //name the device
+
+const int signal = 10; //pin 10 will receive a high signal when the temperature is high
+  
+String reply = "";
+
+void setup(void)
+{
+ pinMode(signal, INPUT);
+ 
+ Serial.begin(9600);
+ 
+ Serial.print(F("Initializing BTLE Module…"));
+ if (!btle.begin())
+ {
+  Serial.println("");
+  Serial.println(F("Couldn't connect to nRF51 Module."));
+  while(1);
+ }
+ Serial.println(F("Ready!"));
+
+ if (PERFORM_CONFIGURATION)
+ {
+  Serial.print(F("Resetting to Defaults…"));
+  if (!btle.factoryReset())
+  {
+   Serial.println("");
+   Serial.println(F("Couldn't reset module."));
+   while(1);
+  }
+  Serial.println(F("Done!"));
+  
+  Serial.print(F("Setting Device name…"));
+  btle.print(F("AT+GAPDEVNAME="));
+  btle.println(BTLE_NAME);
+  if (!btle.waitForOK())
+  {
+   Serial.println(F("Could not set name."));
+   while(1);
+  }
+  btle.reset();
+  Serial.println(F("Done!"));
+ }
+ 
+ btle.setMode(BLUEFRUIT_MODE_DATA);
+}
+
+void loop(void)
+{
+ if (!btle.isConnected())
+ {
+  Serial.print("Waiting to connect to a smartphone…");
+  while (!btle.isConnected())
+  {
+    delay(1000);
+  }
+  Serial.println("Connected!");
+ }
+
+  double result = digitalRead(signal);
+
+  if (result == HIGH){
+    reply = F("Temperature is too high!!!");
+    btle.println(reply);
+    Serial.print(F("Replied With: "));
+    Serial.println(reply);
+    btle.waitForOK();
+  }
+
+} 
