@@ -1,0 +1,167 @@
+#include <LiquidCrystal.h>
+#define NOTE_A4 440
+
+// pin assignments:
+
+const int SPEAKER=2;    
+const int buttonPin = 22;    
+const int tempPin = 3;      
+const int photo = A1; 
+const int red=13;             
+const int green=12;            
+const int blue=11;
+const int MOTOR=10;
+const int lcdcontrol=28;
+const int lcdcontrol2=42;
+const int bluefruit=34;
+
+LiquidCrystal lcd(4, 5, 6, 7, 8, 9);
+
+// intialize variables
+
+int tempState = HIGH;         
+int buttonState;             
+int lastButtonState = LOW;  
+
+
+long lastDebounceTime = 0;  
+long debounceDelay = 50;    
+          
+const int T=15;     
+
+int notes[] = {
+ NOTE_A4, 0
+};
+
+int times[] = {
+ 250, 250
+};
+
+void setup()
+{
+  pinMode(buttonPin, INPUT);
+  pinMode(tempPin, OUTPUT);
+  pinMode (red, OUTPUT); 
+  pinMode (green, OUTPUT);     
+  pinMode (blue, OUTPUT);  
+  pinMode(photo, INPUT);
+  pinMode (MOTOR, OUTPUT);
+  pinMode (lcdcontrol, OUTPUT);
+  pinMode (lcdcontrol2, OUTPUT);
+  pinMode (bluefruit, OUTPUT);
+
+  digitalWrite(tempPin, tempState);
+  digitalWrite(lcdcontrol, HIGH);
+  digitalWrite(lcdcontrol2, HIGH);
+  lcd.begin(16, 2);
+  lcd.print("Temperature in C");
+  Serial.begin(9600);
+}
+
+void loop()
+{
+  int reading = digitalRead(buttonPin);
+
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      if (buttonState == HIGH) {
+        tempState = !tempState;
+      }
+    }
+  }
+
+  digitalWrite(tempPin, tempState);
+
+  lastButtonState = reading;
+
+  if (tempState == 1) { // if the user has not powered down the system
+
+    double t = analogRead(T);
+    double a = 5*t;
+    double volt = a/1023; // value in Volts
+    double temp = 100*volt-50; // ambient temperature
+
+    double motorspeed = 0; 
+
+    digitalWrite(lcdcontrol, HIGH); //turn on LCD screen
+    digitalWrite(lcdcontrol2, HIGH);
+
+    if (temp > 25){ // communicate with the bluefruit if the temperature is high
+      digitalWrite(bluefruit, HIGH);
+    }
+    else if (temp < 25){
+      digitalWrite(bluefruit, LOW);
+    }
+
+    if (temp > 30) //adjust the fan speed based on the temperature
+    {
+      motorspeed = 255;
+    }
+    else if (temp > 20)
+    {
+      motorspeed = 100;
+    }
+    else if (temp < 20)
+    {
+      motorspeed = 0;
+    }
+
+    analogWrite(MOTOR, motorspeed);
+
+    double val = analogRead(photo); 
+    double vlt = val*5/1023;
+  
+    if (vlt > 4){ // speed is high
+      digitalWrite(red, LOW);  //LED is RED
+      digitalWrite(green, HIGH);
+      digitalWrite(blue, HIGH);
+    }
+    else if (vlt > 3){ // speed is medium
+      digitalWrite(red, LOW); // LED is YELLOW
+      digitalWrite(green, LOW);
+      digitalWrite(blue, HIGH);
+    }
+    else{ // speed is low
+      digitalWrite(red, HIGH); // LED is GREEN
+      digitalWrite(green, LOW);
+      digitalWrite(blue, HIGH);
+    }
+    lcd.setCursor(0,1);
+    lcd.print(temp); //display the temperature
+    lcd.print("           ");
+
+    if (temp>30){ //trigger alarm if the temperature is too high
+      for (int i = 0; i < 2; i++)
+      {
+      tone(SPEAKER, notes[i], times[i]);
+      delay(times[i]);
+      }
+    }
+  }
+
+
+  if (tempState == 0) { //if the user has turned off the device
+
+    analogWrite(MOTOR, 0); //turn the fan off
+
+    //Turn off LED
+    digitalWrite(red, HIGH);  
+    digitalWrite(green, HIGH);
+    digitalWrite(blue, HIGH);
+
+    //Turn off the LCD
+    digitalWrite(lcdcontrol, LOW);
+    digitalWrite(lcdcontrol2, LOW);
+
+  }
+
+ delay(500);
+
+}
